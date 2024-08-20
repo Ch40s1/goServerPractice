@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -31,10 +32,11 @@ func main() {
 	// apiCfg.middlewareMetricsInc(...): Wraps the file server with middleware that increments the fileserverHits counter every time the file server is accessed.
 	mux.Handle("/app/*", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
 	// checks the servers readiness as in status code
-	mux.HandleFunc("/healthz", handlerReadiness)
+	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 	// checks the number of server hits
-	mux.HandleFunc("/metrics", apiCfg.handlerMetrics)
-	mux.HandleFunc("/reset", apiCfg.handleReset)
+	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
+	mux.HandleFunc("GET /api/reset", apiCfg.handleReset)
+	mux.HandleFunc("POST /api/validate_chirp", handlePostChirp)
 
 	// creates a new http server with port and mux handler
 	srv := &http.Server{
@@ -56,9 +58,10 @@ func main() {
 // w.WriteHeader(http.StatusOK): Sends a 200 OK status code.
 // w.Write([]byte(fmt.Sprintf("Hits: %d", cfg.fileserverHits))): Writes the number of file server hits to the response body.
 func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Add("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Hits: %d", cfg.fileserverHits)))
+	html := fmt.Sprintf("<html><body><h1>Welcome, Chirpy Admin</h1><p>Chirpy has been visited %d times!</p></body></html>", cfg.fileserverHits)
+	w.Write([]byte(html))
 }
 
 // func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler: This function is a middleware that wraps another handler.
@@ -84,4 +87,33 @@ func (cfg *apiConfig) handleReset(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
 	cfg.fileserverHits = 0
 	w.Write([]byte("Hits reset to 0"))
+}
+
+func handlePostChirp(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Chirp string `json:"body"`
+	}
+	type returnVals struct {
+		Valid bool `json:"valid"`
+	}
+	type errorResp struct {
+		Error string `json:"error"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		log.Printf("Error decoding JSON: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if len(params.Chirp) > 140 {
+		resp := errorResp{Error: "Chirp is too long"}
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+	resp := returnVals{Valid: true}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
 }
