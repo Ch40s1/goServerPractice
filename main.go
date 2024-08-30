@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 )
 
 // struct to hold state of api
@@ -93,8 +94,11 @@ func handlePostChirp(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Chirp string `json:"body"`
 	}
-	type returnVals struct {
-		Valid bool `json:"valid"`
+	// type returnVals struct {
+	// 	Valid bool `json:"valid"`
+	// }
+	type cleanedBody struct {
+		Cleaned_body string `json:"cleaned_body"`
 	}
 	type errorResp struct {
 		Error string `json:"error"`
@@ -113,7 +117,30 @@ func handlePostChirp(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(resp)
 		return
 	}
-	resp := returnVals{Valid: true}
+	// check for certain words, if they are present replace them with a different word
+	profane := []string{"kerfuffle", "sharbert", "fornax"}
+	cleaned := ""
+	chirps := strings.Split(params.Chirp, " ")
+
+	for _, chirp := range chirps {
+		loweredChirp := strings.ToLower(chirp)
+		replaced := false
+
+		for _, word := range profane {
+			if loweredChirp == word {
+				cleaned += "**** "
+				replaced = true
+				break
+			}
+		}
+
+		if !replaced {
+			cleaned += chirp + " "
+		}
+	}
+	fmt.Printf("this is string: %s\n", params.Chirp)
+	// use a pointer to the string to change the value
+	resp := cleanedBody{Cleaned_body: strings.TrimSpace(cleaned)}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resp)
 }
