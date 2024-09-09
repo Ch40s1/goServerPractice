@@ -14,8 +14,15 @@ type apiConfig struct {
 
 func main() {
 	const filepathRoot = "."
+	// for testing purposes
+	// const db_exists = "./database.json"
 	const port = "8080"
 
+	// check if database exists if so delete it for testign purposes
+	// comment out if you want to keep the database
+	// if _, err := os.Stat(db_exists); err == nil {
+	// 	os.Remove(db_exists)
+	// }
 	db, err := database.NewDB("database.json")
 	if err != nil {
 		log.Fatal(err)
@@ -35,6 +42,7 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", apiCfg.handlerChirpsCreate)
 	mux.HandleFunc("GET /api/chirps", apiCfg.handlerChirpsRetrieve)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerChirpsGet)
+	mux.HandleFunc("POST /api/users", apiCfg.handlerUsersCreate)
 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 
